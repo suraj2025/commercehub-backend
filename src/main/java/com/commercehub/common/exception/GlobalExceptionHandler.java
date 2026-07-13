@@ -1,48 +1,80 @@
 package com.commercehub.common.exception;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.commercehub.common.dto.ApiResponse;
-import com.commercehub.user.exception.EmailAlreadyExistsException;
-import com.commercehub.user.exception.MobileAlreadyExistsException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(EmailAlreadyExistsException.class)
-    public ResponseEntity<ApiResponse<Void>> handleEmailExists(
-            EmailAlreadyExistsException ex){
+    /**
+     * Validation Exceptions
+     */
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiResponse<Map<String, String>>> handleValidationException(
+            MethodArgumentNotValidException ex) {
 
-        ApiResponse<Void> response =
-                new ApiResponse<>(
-                        false,
-                        ex.getMessage(),
-                        null
-                );
+        Map<String, String> errors = new HashMap<>();
 
-        return ResponseEntity
-                .status(HttpStatus.CONFLICT)
-                .body(response);
+        for (FieldError error : ex.getBindingResult().getFieldErrors()) {
+            errors.put(error.getField(), error.getDefaultMessage());
+        }
 
-    }
-    @ExceptionHandler(MobileAlreadyExistsException.class)
-    public ResponseEntity<ApiResponse<Void>> handleMobileExists(
-            MobileAlreadyExistsException ex){
-
-        ApiResponse<Void> response =
-                new ApiResponse<>(
-                        false,
-                        ex.getMessage(),
-                        null
-                );
-
-        return ResponseEntity
-                .status(HttpStatus.CONFLICT)
-                .body(response);
-
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.failure(
+                        "Validation failed",
+                        errors
+                ));
     }
 
+    /**
+     * Duplicate Email / Business Exceptions
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<String>> handleIllegalArgumentException(
+            IllegalArgumentException ex) {
+
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.failure(
+                        ex.getMessage(),
+                        null
+                ));
+    }
+
+    /**
+     * Login Failure
+     */
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ApiResponse<String>> handleBadCredentialsException(
+            BadCredentialsException ex) {
+
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.failure(
+                        "Invalid email or password",
+                        null
+                ));
+    }
+
+    /**
+     * Any Unhandled Exception
+     */
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiResponse<String>> handleException(
+            Exception ex) {
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.failure(
+                        ex.getMessage(),
+                        null
+                ));
+    }
 }
